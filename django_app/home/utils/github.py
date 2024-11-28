@@ -1,7 +1,9 @@
 import requests
 import base64
 from urllib.parse import urlparse
+import uuid
 
+from .ai_agent import analyze_code_with_llm
 
 def get_owner_and_repo(url):
     parsed_url = urlparse(url)
@@ -28,3 +30,24 @@ def fetch_file_content(repo_url, file_path, github_token=None):
     response.raise_for_status()
     content = response.content
     return base64.b64decode(content['content']).decode()
+
+def analyze_pr(repo_url, pr_number, github_token=None):
+    task_id = str(uuid.uuid4())
+    try:
+        pr_files = fetch_pr_files(repo_url, pr_number, github_token)
+        analysis_results = []
+        for file in pr_files:
+            file_name = file['filename']
+            raw_content = fetch_file_content(repo_url, file_name, github_token)
+            analysis_result = analyze_code_with_llm(raw_content, file_name)
+            analysis_results.append({"results": analysis_result,"file_name": file_name})
+        return {
+                "task_id": task_id,
+                "results": analysis_result
+                }
+    except Exception as e:
+        print(e)
+        return{
+                "task_id": task_id,
+                "results": []
+                }
